@@ -75,7 +75,7 @@ def get_participacao(xml):
     return 'Não'
 
 def data_save(data):
-    data['agent']=os.getenv('AGENT') 
+    data['agent']=os.getenv('AGENT_NAME') 
     data['ip'] = self_ip()
     return data
     # produce(data, 'qqihoccr-info')
