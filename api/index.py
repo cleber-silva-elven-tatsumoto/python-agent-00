@@ -1,18 +1,42 @@
-from bin.producer import produce
-from bin.helper import *
-import requests
-import json, os
+from fastapi import FastAPI
+import requests, json, os
+
+SELF_IP = None
+
+def self_ip():
+    global SELF_IP
+    if SELF_IP:
+        return SELF_IP
+    print('Buscando IP')
+    r = requests.get('https://api.ipify.org?format=json')
+    SELF_IP = json.loads(r.text)['ip']
+    return SELF_IP
+
+def media_consumo(historico):
+    try:
+        consumo = [g.get('Dados') 
+            for g in historico.get('Graficos') 
+                if g.get('TipoGrafico') == 'HistoricoConsumo'][0]
+        if len(consumo) > 0:
+            total = 0
+            for dado in consumo:
+                total = total + float(dado.get('MediaConsumo'))
+            return (total / len(consumo))
+        return 0.0
+    except:
+        return 0.0
 
 def get_details(arr_chaves, pgp_api):
     chaves =  {
-        "chaves": arr_chaves
+        "chaves": [arr_chaves]
     }
     r = requests.post(pgp_api, json=chaves)
     secrets = json.loads(r.text)
+
+    chave = secrets[0]
     
-    for chave in secrets:
-        chave['tokens'] = get_media_token(chave)
-        get_media_participacao(chave)
+    chave['tokens'] = get_media_token(secrets[0])
+    return get_media_participacao(chave)
 
 
 def get_media_token(chave):
@@ -21,7 +45,7 @@ def get_media_token(chave):
         headers = {
             'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 10_3 like Mac OS X) AppleWebKit/603.1.30 (KHTML, like Gecko) Version/10.0 Mobile/14E269 Safari/602.1'
         }
-        cookies = {"rxvt" : chave['chave'] }
+        cookies = {"rxvts" : chave['chave'] }
         dados = {
             'client_id' : 'agencia-virtual-cpfl-app',
             'grant_type': 'instalacao_app',
@@ -29,9 +53,10 @@ def get_media_token(chave):
         }
         instalacao_chave = chave.get('chave').split('|')[0]
         r = requests.post(url_token, data=dados, cookies=cookies, headers=headers)
+      
         if 'You are being rate limited' in r.text:
             print('BLOQUEADO PELO SITE')
-            data_save({
+            return data_save({
                 'chave': chave.get('chave'),
                 'media': 'BLOCK', 
                 'participacao': 'BLOCK'
@@ -44,12 +69,17 @@ def get_media_token(chave):
         print(e)
         return None
 
+def get_participacao(xml):
+    if 'Participacao na ger' in xml:
+        return 'Sim'
+    return 'Não'
+
 def data_save(data):
     data['agent']=os.getenv('AGENT') 
-    print('Escrevendo topico:')
-    print(data)
-    produce(data, 'qqihoccr-info')
-    print(' --- ESCRITO ---')
+    data['ip'] = self_ip()
+    return data
+    # produce(data, 'qqihoccr-info')
+    # print(' --- ESCRITO ---')
 
 def get_media_participacao(chave):
     try:
@@ -66,10 +96,11 @@ def get_media_participacao(chave):
             "ParceiroNegocio": instalacao['ParceiroNegocio'],
         }
 
+        print(dados)
+
         headers = {
             'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 10_3 like Mac OS X) AppleWebKit/603.1.30 (KHTML, like Gecko) Version/10.0 Mobile/14E269 Safari/602.1',
             'Authorization': f'Bearer {token}',
-        
         }
 
         url = 'https://servicosonline.cpfl.com.br/agencia-webapi/api/historico-consumo/busca-graficos'
@@ -77,13 +108,15 @@ def get_media_participacao(chave):
         historico = json.loads(r.text)
         if 'You are being rate limited' in r.text:
             print('BLOQUEADO PELO SITE')
-            data_save({
+            return data_save({
                 'chave': chave.get('chave'),
                 'media': 'BLOCK', 
                 'participacao': 'BLOCK'
             })
             return
         media = media_consumo(historico)
+        print(historico)
+        print(media)
 
         dados = {
             "RetornarDetalhes" : "true", 
@@ -103,7 +136,7 @@ def get_media_participacao(chave):
         r = requests.post(url, data=dados, cookies=cookies, headers=headers)
         if 'You are being rate limited' in r.text:
             print('BLOQUEADO PELO SITE')
-            data_save({
+            return data_save({
                 'chave': chave.get('chave'),
                 'media': 'BLOCK', 
                 'participacao': 'BLOCK'
@@ -116,14 +149,14 @@ def get_media_participacao(chave):
         r = requests.post(url, data={"NumeroDocumento": quitadas['ContasPagas'][0]['NumeroContaEnergia']}, cookies=cookies, headers=headers)
         if 'You are being rate limited' in r.text:
             print('BLOQUEADO PELO SITE')
-            data_save({
+            return data_save({
                 'chave': chave.get('chave'),
                 'media': 'BLOCK', 
                 'participacao': 'BLOCK'
             })
             return
         participacao = get_participacao(r.text)
-        data_save({
+        return data_save({
             'chave': chave.get('chave'),
             'media': "%.2f" %  media, 
             'participacao': participacao
@@ -131,10 +164,20 @@ def get_media_participacao(chave):
         return
     except Exception as e:
         print(e)
-        data_save({
+        return data_save({
             'chave': chave.get('chave'),
             'media': 'None', 
             'participacao': 'None'
         })
         return
 
+
+
+app = FastAPI()
+pgp_api = "https://pgp-five.vercel.app/api/pgp"
+
+
+@app.get("/api/{chave}")
+def read_root(chave: str):
+    data = get_details(chave, pgp_api)
+    return data
