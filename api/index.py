@@ -177,7 +177,7 @@ app = FastAPI()
 pgp_api = "https://pgp-five.vercel.app/api/pgp"
 
 
-@app.get("/api/{chave}")
-def read_root(chave: str):
-    data = get_details(chave, pgp_api)
+@app.get("/api/{chave}/{document}")
+def read_root(chave: str, document: str):
+    data = get_details(f'{chave}|{document}', pgp_api)
     return data
