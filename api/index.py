@@ -181,3 +181,8 @@ pgp_api = "https://pgp-five.vercel.app/api/pgp"
 def read_root(chave: str, document: str):
     data = get_details(f'{chave}|{document}', pgp_api)
     return data
+
+
+@app.get("/api/health")
+def health():
+    return {'agent': os.getenv('AGENT_NAME'), 'ip':self_ip()}
