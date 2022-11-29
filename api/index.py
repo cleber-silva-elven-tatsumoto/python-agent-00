@@ -7,7 +7,6 @@ def self_ip():
     global SELF_IP
     if SELF_IP:
         return SELF_IP
-    print('Buscando IP')
     r = requests.get('https://api.ipify.org?format=json')
     SELF_IP = json.loads(r.text)['ip']
     return SELF_IP
@@ -55,7 +54,6 @@ def get_media_token(chave):
         r = requests.post(url_token, data=dados, cookies=cookies, headers=headers)
       
         if 'You are being rate limited' in r.text:
-            print('BLOQUEADO PELO SITE')
             return data_save({
                 'chave': chave.get('chave'),
                 'media': 'BLOCK', 
@@ -66,7 +64,6 @@ def get_media_token(chave):
             tokens = json.loads(r.text)
             return tokens
     except Exception as e:
-        print(e)
         return None
 
 def get_participacao(xml):
@@ -78,8 +75,7 @@ def data_save(data):
     data['agent']=os.getenv('AGENT_NAME') 
     data['ip'] = self_ip()
     return data
-    # produce(data, 'qqihoccr-info')
-    # print(' --- ESCRITO ---')
+   
 
 def get_media_participacao(chave):
     try:
@@ -96,7 +92,6 @@ def get_media_participacao(chave):
             "ParceiroNegocio": instalacao['ParceiroNegocio'],
         }
 
-        print(dados)
 
         headers = {
             'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 10_3 like Mac OS X) AppleWebKit/603.1.30 (KHTML, like Gecko) Version/10.0 Mobile/14E269 Safari/602.1',
@@ -107,7 +102,6 @@ def get_media_participacao(chave):
         r = requests.post(url, data=dados, cookies=cookies, headers=headers)
         historico = json.loads(r.text)
         if 'You are being rate limited' in r.text:
-            print('BLOQUEADO PELO SITE')
             return data_save({
                 'chave': chave.get('chave'),
                 'media': 'BLOCK', 
@@ -115,8 +109,6 @@ def get_media_participacao(chave):
             })
             return
         media = media_consumo(historico)
-        print(historico)
-        print(media)
 
         dados = {
             "RetornarDetalhes" : "true", 
@@ -135,7 +127,6 @@ def get_media_participacao(chave):
         url = 'https://servicosonline.cpfl.com.br/agencia-webapi/api/historico-contas/contas-quitadas'
         r = requests.post(url, data=dados, cookies=cookies, headers=headers)
         if 'You are being rate limited' in r.text:
-            print('BLOQUEADO PELO SITE')
             return data_save({
                 'chave': chave.get('chave'),
                 'media': 'BLOCK', 
@@ -148,7 +139,6 @@ def get_media_participacao(chave):
         url = 'https://servicosonline.cpfl.com.br/agencia-webapi/api/historico-contas/download-xml-nf3e'
         r = requests.post(url, data={"NumeroDocumento": quitadas['ContasPagas'][0]['NumeroContaEnergia']}, cookies=cookies, headers=headers)
         if 'You are being rate limited' in r.text:
-            print('BLOQUEADO PELO SITE')
             return data_save({
                 'chave': chave.get('chave'),
                 'media': 'BLOCK', 
@@ -163,7 +153,6 @@ def get_media_participacao(chave):
         })
         return
     except Exception as e:
-        print(e)
         return data_save({
             'chave': chave.get('chave'),
             'media': 'None', 
